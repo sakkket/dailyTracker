@@ -101,7 +101,8 @@ export class TransactionService {
         expense['totalExpenditure'] = 0;
         for (const key in expense) {
           if (!['totalExpenditure', 'date'].includes(key)) {
-            expense['totalExpenditure'] = expense['totalExpenditure'] + expense[key];
+            expense['totalExpenditure'] =
+              expense['totalExpenditure'] + expense[key];
           }
         }
       });
@@ -130,7 +131,7 @@ export class TransactionService {
       {
         $group: {
           _id: null,
-          totalAmount: { $sum: "$amount" }
+          totalAmount: { $sum: '$amount' },
         },
       },
       {
@@ -140,7 +141,9 @@ export class TransactionService {
         },
       },
     ];
-    const expenditureResult: any = await this.transactionModel.aggregate(expenditurePipelineQuery);
+    const expenditureResult: any = await this.transactionModel.aggregate(
+      expenditurePipelineQuery,
+    );
     const totalExpenses = expenditureResult[0] ?? { totalAmount: 0 };
 
     const incomePipelineQuery: PipelineStage[] = [
@@ -154,7 +157,7 @@ export class TransactionService {
       {
         $group: {
           _id: null,
-          totalAmount: { $sum: "$amount" }
+          totalAmount: { $sum: '$amount' },
         },
       },
       {
@@ -168,6 +171,6 @@ export class TransactionService {
       await this.transactionModel.aggregate(incomePipelineQuery);
     const totalIncome = incomeResult[0] ?? { totalAmount: 0 };
 
-    return {totalExpenses: totalExpenses, totalIncome: totalIncome };
+    return { totalExpenses: totalExpenses, totalIncome: totalIncome };
   }
 }
