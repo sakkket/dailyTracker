@@ -104,6 +104,9 @@ export class TransactionService {
             expense['totalExpenditure'] =
               expense['totalExpenditure'] + expense[key];
           }
+          if(expense[key] === 0){
+            delete expense[key];
+          }
         }
       });
     }
@@ -120,57 +123,48 @@ export class TransactionService {
     if (!userId) {
       throw new UnauthorizedException();
     }
-    const expenditurePipelineQuery: PipelineStage[] = [
+    const totalPipelineQuery: PipelineStage[] = [
       {
         $match: {
           month: month,
           userId: userId,
-          type: 'DEBIT',
         },
       },
       {
         $group: {
-          _id: null,
+          _id: '$type',
           totalAmount: { $sum: '$amount' },
         },
       },
       {
         $project: {
           _id: 0,
+          type: '$_id',
           totalAmount: 1,
         },
       },
     ];
-    const expenditureResult: any = await this.transactionModel.aggregate(
-      expenditurePipelineQuery,
-    );
-    const totalExpenses = expenditureResult[0] ?? { totalAmount: 0 };
+    const results: any[] =
+      await this.transactionModel.aggregate(totalPipelineQuery);
 
-    const incomePipelineQuery: PipelineStage[] = [
-      {
-        $match: {
-          month: month,
-          userId: userId,
-          type: 'CREDIT',
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          totalAmount: { $sum: '$amount' },
-        },
-      },
-      {
-        $project: {
-          _id: 0,
-          totalAmount: 1,
-        },
-      },
-    ];
-    const incomeResult: any =
-      await this.transactionModel.aggregate(incomePipelineQuery);
-    const totalIncome = incomeResult[0] ?? { totalAmount: 0 };
-
-    return { totalExpenses: totalExpenses, totalIncome: totalIncome };
+    const response = {
+      totalExpenses: 0,
+      totalIncome: 0,
+      totalSavings: 0,
+    };
+    if (results && results.length) {
+      results.forEach((result) => {
+        if (result['type'] === 'SAVING') {
+          response.totalSavings = result['totalAmount'];
+        }
+        if (result['type'] === 'DEBIT') {
+          response.totalExpenses = result['totalAmount'];
+        }
+        if (result['type'] === 'CREDIT') {
+          response.totalIncome = result['totalAmount'];
+        }
+      });
+    }
+    return response;
   }
 }
