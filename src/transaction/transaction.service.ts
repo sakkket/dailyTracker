@@ -167,4 +167,29 @@ export class TransactionService {
     }
     return response;
   }
+
+  async getTransactionsList(
+    user: any,
+    month: string,
+    year: string,
+    type: string,
+    limit: number,
+    offset: number,
+  ): Promise<any> {
+    const userId = (user._id || '').toString();
+    if (!userId) {
+      throw new UnauthorizedException();
+    }
+    offset = offset || 0;
+    limit = limit || 100;
+    const transactions: any[] = await this.transactionModel
+      .find({
+        userId: userId,
+        month: month,
+      })
+      .sort({ day: -1 })
+      .skip(offset)
+      .limit(limit);
+    return transactions;
+  }
 }

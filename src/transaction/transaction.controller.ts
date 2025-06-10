@@ -40,6 +40,27 @@ export class TransactionController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get('/list')
+  getTransactions(
+    @Request() req,
+    @Query('month') month: string,
+    @Query('year') year: string,
+    @Query('type') type: string,
+    @Query('limit') limit: number,
+    @Query('offset') offset: number,
+  ): any {
+    const user = req.user;
+    return this.transactionService.getTransactionsList(
+      user,
+      month,
+      year,
+      type,
+      limit,
+      offset,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post()
   create(@Body() createTransactionDto: CreateTransactionDto, @Request() req) {
     const user: User = req.user;
