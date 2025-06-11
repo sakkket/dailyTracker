@@ -84,6 +84,7 @@ export class TransactionService {
           transfer: { $ifNull: ['$categories.transfer', 0] },
           gadget: { $ifNull: ['$categories.gadget', 0] },
           car: { $ifNull: ['$categories.car', 0] },
+          health: { $ifNull: ['$categories.health', 0] },
         },
       },
       {
