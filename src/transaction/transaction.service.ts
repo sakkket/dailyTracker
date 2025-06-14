@@ -155,7 +155,7 @@ export class TransactionService {
     };
     if (results && results.length) {
       results.forEach((result) => {
-        if (result['type'] === 'SAVING') {
+        if (result['type'] === 'SAVINGS' || result['type'] === 'SAVING') {
           response.totalSavings = result['totalAmount'];
         }
         if (result['type'] === 'DEBIT') {
@@ -176,6 +176,7 @@ export class TransactionService {
     type: string,
     limit: number,
     offset: number,
+    category: string,
   ): Promise<any> {
     const userId = (user._id || '').toString();
     if (!userId) {
@@ -183,14 +184,19 @@ export class TransactionService {
     }
     offset = offset || 0;
     limit = limit || 100;
+    const query = {
+      userId: userId,
+      month: month,
+    };
+    if (category) {
+      query['category'] = category;
+    }
+    const transactionsCount = await this.transactionModel.countDocuments(query);
     const transactions: any[] = await this.transactionModel
-      .find({
-        userId: userId,
-        month: month,
-      })
+      .find(query)
       .sort({ day: -1 })
       .skip(offset)
       .limit(limit);
-    return transactions;
+    return { transactions: transactions, totalCount: transactionsCount };
   }
 }

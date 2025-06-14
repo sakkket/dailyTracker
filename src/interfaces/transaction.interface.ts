@@ -9,4 +9,5 @@ export interface Transaction extends Document {
   readonly userId: Types.ObjectId;
   readonly month: string;
   readonly day: string;
+  readonly comment: string;
 }

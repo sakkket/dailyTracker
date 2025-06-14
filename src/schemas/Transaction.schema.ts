@@ -29,6 +29,9 @@ export class Transaction {
 
   @Prop()
   day: string; // e.g. "2025-05-18"
+
+  @Prop()
+  comment: string;
 }
 
 export const TransactionSchema = SchemaFactory.createForClass(Transaction);

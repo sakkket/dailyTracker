@@ -48,6 +48,7 @@ export class TransactionController {
     @Query('type') type: string,
     @Query('limit') limit: number,
     @Query('offset') offset: number,
+    @Query('category') category: string,
   ): any {
     const user = req.user;
     return this.transactionService.getTransactionsList(
@@ -57,6 +58,7 @@ export class TransactionController {
       type,
       limit,
       offset,
+      category,
     );
   }
 

@@ -5,11 +5,12 @@ import { ValidationPipe } from '@nestjs/common';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors({
-    origin: 'http://localhost:3000', // React app origin
-    credentials: true,
+    origin: ['http://localhost:3000', 'http://192.168.0.114:3000'], // frontend origins
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true, // if using cookies or auth headers
   });
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true, // strips properties that don't have decorators
@@ -18,6 +19,6 @@ async function bootstrap() {
     }),
   );
 
-  await app.listen(3010);
+  await app.listen(3010, '0.0.0.0');
 }
 bootstrap();

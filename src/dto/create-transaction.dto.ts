@@ -27,4 +27,7 @@ export class CreateTransactionDto {
 
   @IsOptional()
   day: string;
+
+  @IsOptional()
+  comment: string;
 }
