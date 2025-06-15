@@ -8,6 +8,7 @@ export interface Transaction extends Document {
   readonly isValid: string;
   readonly userId: Types.ObjectId;
   readonly month: string;
+  readonly year: string;
   readonly day: string;
   readonly comment: string;
 }

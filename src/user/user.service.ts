@@ -41,10 +41,13 @@ export class UserService {
     if (!isMatch) {
       throw new UnauthorizedException('Invalid credentials');
     }
-    const accessToken = this.authService.generateAccessToken(user);
-    const refreshToken = this.authService.generateRefreshToken(user);
+    const userObj:any = JSON.parse(JSON.stringify(user));
+    delete userObj.password;
+    delete userObj._id;
+    const accessToken = this.authService.generateAccessToken(userObj);
+    const refreshToken = this.authService.generateRefreshToken(userObj);
     const response = {
-      user: user,
+      user: userObj,
       accessToken: accessToken,
       refreshToken: refreshToken,
     };

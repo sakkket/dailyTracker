@@ -25,6 +25,9 @@ export class Transaction {
   userId: Types.ObjectId;
 
   @Prop()
+  year: string; // e.g. "2025"
+
+  @Prop()
   month: string; // e.g. "2025-05"
 
   @Prop()

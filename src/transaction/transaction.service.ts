@@ -4,6 +4,7 @@ import { Transaction } from 'src/interfaces/transaction.interface';
 import { CreateTransactionDto } from 'src/dto/create-transaction.dto';
 import { PipelineStage } from 'mongoose';
 import { User } from '../interfaces/user.interface';
+import UpdateTransactionDto from 'src/dto/update-transaction.dto';
 
 @Injectable()
 export class TransactionService {
@@ -124,12 +125,17 @@ export class TransactionService {
     if (!userId) {
       throw new UnauthorizedException();
     }
+    const matchQuery = {
+      userId: userId,
+    };
+    if (month) {
+      matchQuery['month'] = month;
+    } else if (year) {
+      matchQuery['year'] = year;
+    }
     const totalPipelineQuery: PipelineStage[] = [
       {
-        $match: {
-          month: month,
-          userId: userId,
-        },
+        $match: matchQuery,
       },
       {
         $group: {
@@ -191,6 +197,7 @@ export class TransactionService {
     if (category) {
       query['category'] = category;
     }
+    //this.transactionsDataCorrection();
     const transactionsCount = await this.transactionModel.countDocuments(query);
     const transactions: any[] = await this.transactionModel
       .find(query)
@@ -198,5 +205,34 @@ export class TransactionService {
       .skip(offset)
       .limit(limit);
     return { transactions: transactions, totalCount: transactionsCount };
+  }
+
+  async transactionsDataCorrection() {
+    const transactions: any[] = await this.transactionModel.find();
+    for (const transaction of transactions) {
+      console.log(transaction._id);
+      await this.transactionModel.findByIdAndUpdate(transaction._id, {
+        $set: { year: '2025' },
+      });
+    }
+  }
+
+  async deleteExpenditure(user: any, _id: string) {
+    if (_id) {
+      await this.transactionModel.findByIdAndDelete(_id);
+    }
+    return true;
+  }
+
+  async updateTransaction(
+    id: string,
+    updateTransactionDto: UpdateTransactionDto,
+  ) {
+    const updatedTransaction = await this.transactionModel.findByIdAndUpdate(
+      id,
+      { $set: updateTransactionDto },
+      { new: true }, // return the updated document
+    );
+    return updatedTransaction;
   }
 }

@@ -1,26 +1,21 @@
-import {
-  IsEmail,
-  IsOptional,
-  IsString,
-  IsNumber,
-  IsDate,
-} from 'class-validator';
+import { IsOptional, IsString, IsNumber } from 'class-validator';
 
-export class CreateTransactionDto {
+export default class UpdateTransactionDto {
   @IsNumber()
+  @IsOptional()
   amount: number;
 
+  @IsOptional()
   @IsString()
   category: string;
 
+  @IsOptional()
   @IsString()
   date: string;
 
+  @IsOptional()
   @IsString()
   type: string;
-
-  @IsOptional()
-  userId: string;
 
   @IsOptional()
   month: string;

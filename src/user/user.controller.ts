@@ -33,6 +33,9 @@ export class UserController {
   @UseGuards(JwtAuthGuard)
   @Get('/validate')
   verify(@Request() req) {
-    return req.user;
+    const user = JSON.parse(JSON.stringify(req.user));
+    delete user.password;
+    delete user._id;
+    return user;
   }
 }

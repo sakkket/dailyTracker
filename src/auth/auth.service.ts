@@ -7,7 +7,7 @@ export class AuthService {
 
   generateAccessToken(user: any){
     const payload = { email: user.email, sub: user._id };
-    const accessToken = this.jwtService.sign(payload, { expiresIn: '1d' });
+    const accessToken = this.jwtService.sign(payload, { expiresIn: '5d' });
     return accessToken;
   }
 
