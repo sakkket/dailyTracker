@@ -7,6 +7,7 @@ import { TransactionModule } from './transaction/transaction.module';
 import { AuthModule } from './auth/auth.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ConfigModule } from '@nestjs/config';
+import { UservisitModule } from './uservisit/uservisit.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { ConfigModule } from '@nestjs/config';
         '.env', // fallback
       ],
     }),
+    UservisitModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,5 +1,11 @@
 import { Model } from 'mongoose';
-import { Injectable, Inject, UnauthorizedException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  UnauthorizedException,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { User } from '../interfaces/user.interface';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { LoginDto } from 'src/dto/login.dto';
@@ -15,6 +21,12 @@ export class UserService {
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
+    const userExists = await this.userModel.findOne({
+      email: createUserDto.email,
+    });
+    if (userExists) {
+      throw new BadRequestException('User already exists');
+    }
     const saltOrRounds = 10;
     const hashedPassword = await bcrypt.hash(
       createUserDto.password,
@@ -41,7 +53,7 @@ export class UserService {
     if (!isMatch) {
       throw new UnauthorizedException('Invalid credentials');
     }
-    const userObj:any = JSON.parse(JSON.stringify(user));
+    const userObj: any = JSON.parse(JSON.stringify(user));
     delete userObj.password;
     delete userObj._id;
     const accessToken = this.authService.generateAccessToken(userObj);
