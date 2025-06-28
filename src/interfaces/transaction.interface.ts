@@ -11,4 +11,5 @@ export interface Transaction extends Document {
   readonly year: string;
   readonly day: string;
   readonly comment: string;
+  readonly currencyCode: string;
 }

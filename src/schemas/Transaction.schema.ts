@@ -35,6 +35,9 @@ export class Transaction {
 
   @Prop()
   comment: string;
+
+  @Prop({ default: 'INR' })
+  currencyCode: string;
 }
 
 export const TransactionSchema = SchemaFactory.createForClass(Transaction);

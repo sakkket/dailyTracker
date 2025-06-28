@@ -5,6 +5,8 @@ import { CreateTransactionDto } from 'src/dto/create-transaction.dto';
 import { PipelineStage } from 'mongoose';
 import { User } from '../interfaces/user.interface';
 import UpdateTransactionDto from 'src/dto/update-transaction.dto';
+const SLR = require('ml-regression').SLR;
+import * as moment from 'moment';
 
 @Injectable()
 export class TransactionService {
@@ -12,7 +14,7 @@ export class TransactionService {
     @Inject('TRANSACTION_MODEL')
     private transactionModel: Model<Transaction>,
   ) {}
-
+  private inProgress = new Set();
   async create(
     createTransactionDto: CreateTransactionDto,
     user: User,
@@ -106,7 +108,7 @@ export class TransactionService {
             expense['totalExpenditure'] =
               expense['totalExpenditure'] + expense[key];
           }
-          if(expense[key] === 0){
+          if (expense[key] === 0) {
             delete expense[key];
           }
         }
@@ -212,7 +214,7 @@ export class TransactionService {
     for (const transaction of transactions) {
       console.log(transaction._id);
       await this.transactionModel.findByIdAndUpdate(transaction._id, {
-        $set: { year: '2025' },
+        $set: { currencyCode: 'INR' },
       });
     }
   }
@@ -234,5 +236,216 @@ export class TransactionService {
       { new: true }, // return the updated document
     );
     return updatedTransaction;
+  }
+
+  async getInsights(user: any, month) {
+    const userId = (user._id || '').toString();
+    const currencyCode = user.currencyCode || 'INR';
+    if (!userId) {
+      throw new UnauthorizedException();
+    }
+    if (this.inProgress.has(userId)) {
+      return 'Already Processing';
+    }
+    this.inProgress.add(userId);
+    try {
+      const topCategories: any[] = await this.getTopExpenditureCategories(userId, month);
+      const monthlyChange: string = await this.getMonthlyChange(userId, month);
+      const peerComparision: string = await this.peerComparision(userId, currencyCode, month);
+      const nextMonthPrediction = await this.predictNextMonthSpend(userId);
+      const insightsObject = {
+        topCategories: topCategories,
+        monthlyChange: monthlyChange,
+        averageSpendVsOthers: peerComparision,
+        predictedEndOfMonthSpend: nextMonthPrediction,
+        //warnings: ['High spending on Electronics this week'],
+      };
+      return insightsObject;
+    } finally {
+      this.inProgress.delete(userId);
+    }
+  }
+
+  async getTopExpenditureCategories(userId, month): Promise<any[]> {
+    const EXPENDITURE_CATEGORIES_MAP = {
+      transport: 'Transport',
+      food: 'Food & Drinks',
+      groceries: 'Groceries',
+      rent: 'Rent',
+      loans: 'Loan',
+      entertainment: 'Entertainment',
+      clothes: 'Clothes',
+      internet: 'Internet & Phone',
+      na: 'No Category',
+      transfer: 'Fund Transfer',
+      gadget: 'Gadget',
+      car: 'Car Fuel & Maintainance',
+      income: 'Income or Budget',
+      mutualFund: 'Mutual Fund',
+      fd: 'Fixed Deposit',
+      rd: 'Recurring Deposit',
+      stocks: 'Stocks',
+      health: 'Health & Grooming',
+    };
+    const topCategories: any[] = await this.transactionModel.aggregate([
+      {
+        $match: {
+          userId: userId,
+          month: month,
+          type: 'DEBIT',
+        },
+      },
+      {
+        $group: {
+          _id: '$category',
+          totalSpend: { $sum: '$amount' },
+        },
+      },
+      {
+        $sort: { totalSpend: -1 },
+      },
+      {
+        $limit: 3,
+      },
+    ]);
+    if (topCategories && topCategories.length) {
+      const categories = topCategories.map(
+        (category) => EXPENDITURE_CATEGORIES_MAP[category._id],
+      );
+      return categories;
+    }
+    return [];
+  }
+  async getMonthlyChange(userId, month): Promise<string> {
+    const current = moment(month, 'YYYY-MM');
+    const previous = current.subtract(1, 'month').format('YYYY-MM');
+    const totalExpenditureInCurrentAndLastMonth =
+      await this.transactionModel.aggregate([
+        {
+          $match: {
+            userId: userId,
+            type: 'DEBIT',
+            month: { $in: [month, previous] }, // current & last month
+          },
+        },
+        {
+          $group: {
+            _id: '$month',
+            totalSpend: { $sum: '$amount' },
+          },
+        },
+        {
+          $project: {
+            month: '$_id',
+            totalSpend: 1,
+            _id: 0,
+          },
+        },
+      ]);
+    if (
+      totalExpenditureInCurrentAndLastMonth &&
+      totalExpenditureInCurrentAndLastMonth.length
+    ) {
+      const last =
+        totalExpenditureInCurrentAndLastMonth.find((d) => d.month === '2025-05')
+          ?.totalSpend || 0;
+      const current =
+        totalExpenditureInCurrentAndLastMonth.find((d) => d.month === '2025-06')
+          ?.totalSpend || 0;
+      const percentageChange =
+        last > 0 ? (((current - last) / last) * 100).toFixed(0) + '%' : 'N/A';
+      return percentageChange;
+    }
+    return 'N/A';
+  }
+
+  async peerComparision(userId, currencyCode, month): Promise<string> {
+    const userVsOthersResults: any = await this.transactionModel.aggregate([
+      {
+        $match: {
+          month: month,
+          type: 'DEBIT',
+          isValid: true,
+        },
+      },
+      {
+        $facet: {
+          userSpend: [
+            { $match: { userId: userId } },
+            {
+              $group: {
+                _id: null,
+                total: { $sum: '$amount' },
+              },
+            },
+          ],
+          othersAverage: [
+            { $match: { userId: { '$ne': userId }, currencyCode: currencyCode } },
+            {
+              $group: {
+                _id: '$userId',
+                total: { $sum: '$amount' },
+              },
+            },
+            {
+              $group: {
+                _id: null,
+                avgSpend: { $avg: "$total" }
+              },
+            },
+          ],
+        },
+      },
+    ]);
+    if (userVsOthersResults) {
+      const user = userVsOthersResults[0].userSpend[0]?.total || 0;
+      const avg = userVsOthersResults[0].othersAverage[0]?.avgSpend || 0;
+      const comparison =
+        avg > 0 ? (((user - avg) / avg) * 100).toFixed(0) + '%' : 'N/A';
+      return comparison;
+    }
+    return 'N/A';
+  }
+
+  async predictNextMonthSpend(userId: string): Promise<number> {
+    // Step 1: Aggregate total monthly DEBIT spend per user
+    const spends = await this.transactionModel.aggregate([
+      {
+        $match: {
+          userId,
+          type: 'DEBIT',
+        },
+      },
+      {
+        $group: {
+          _id: '$month',
+          total: { $sum: '$amount' },
+        },
+      },
+      {
+        $sort: { _id: 1 },
+      },
+    ]);
+    if (!spends || spends.length === 0) {
+      return 0;
+    }
+    if (spends.length < 3) {
+      spends.push(spends[0]);
+      spends.push(spends[0]);
+      //return 0; // Not enough data
+    }
+
+    // Step 2: Convert to numeric month index and total spend array
+    const x = spends.map((_, i) => i + 1);
+    const y = spends.map((s) => s.total);
+
+    // Step 3: Train the SLR model
+    const regression = new SLR(x, y);
+
+    // Step 4: Predict for next month
+    const nextX = x.length + 1;
+    const predicted = regression.predict(nextX);
+
+    return Math.round(predicted);
   }
 }

@@ -11,6 +11,7 @@ import { CreateUserDto } from '../dto/create-user.dto';
 import { LoginDto } from 'src/dto/login.dto';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from 'src/auth/auth.service';
+import { UpdateUserDto } from 'src/dto/update-user.dto';
 
 @Injectable()
 export class UserService {
@@ -32,11 +33,48 @@ export class UserService {
       createUserDto.password,
       saltOrRounds,
     );
+    delete createUserDto.confirmPassword;
     const createUser = new this.userModel({
       ...createUserDto,
       password: hashedPassword,
     });
     return createUser.save();
+  }
+
+  async updateUser(updateUserDto: UpdateUserDto) {
+    const updatePayload = {};
+    if (updateUserDto.name) {
+      updatePayload['name'] = updateUserDto.name;
+    }
+    if (updateUserDto.phone) {
+      updatePayload['phone'] = updateUserDto.phone;
+    }
+    if (updateUserDto.newPassword) {
+      const user = await this.userModel.findById(updateUserDto.id);
+      if (user) {
+        const isMatch = await bcrypt.compare(
+          updateUserDto.password,
+          user.password,
+        );
+        if (!isMatch) {
+          throw new UnauthorizedException('Current password is not matching');
+        }
+        const saltOrRounds = 10;
+        const hashedPassword = await bcrypt.hash(
+          updateUserDto.newPassword,
+          saltOrRounds,
+        );
+        updatePayload['password'] = hashedPassword;
+      }
+    }
+    const updatedUser = await this.userModel.findByIdAndUpdate(
+      updateUserDto.id,
+      {
+        $set: updatePayload,
+      },
+      { new: true },
+    );
+    return updatedUser;
   }
 
   async findAll(): Promise<User[]> {

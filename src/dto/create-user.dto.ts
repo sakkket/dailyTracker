@@ -5,6 +5,7 @@ import {
   IsString,
   IsBoolean,
   IsNumber,
+  IsObject,
 } from 'class-validator';
 
 export class CreateUserDto {
@@ -22,6 +23,15 @@ export class CreateUserDto {
 
   @IsNumber()
   phone: number;
+
+  @IsString()
+  currencyCode: string;
+
+  @IsObject()
+  country: any;
+
+  @IsOptional()
+  confirmPassword?: string;
 
   @IsOptional()
   @IsBoolean()

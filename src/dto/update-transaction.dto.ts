@@ -28,4 +28,7 @@ export default class UpdateTransactionDto {
 
   @IsOptional()
   comment: string;
+
+  @IsOptional()
+  currencyCode: string;
 }

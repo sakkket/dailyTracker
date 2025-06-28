@@ -94,4 +94,11 @@ export class TransactionController {
     const user = req.user;
     return this.transactionService.deleteExpenditure(user, id);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('insights')
+  getInsights(@Request() req, @Query('month') month: string): any {
+    const user: any = req?.user;
+    return this.transactionService.getInsights(user, month);
+  }
 }

@@ -21,6 +21,17 @@ export class User {
   @Prop({ required: true })
   password: string;
 
+  @Prop({ default: 'INR' })
+  currencyCode: string;
+
+  @Prop({ required: true, type: Object })
+  country: {
+    name: string;
+    code: string;
+    currency: string;
+    symbol: string;
+  };
+
   @Prop({ default: true })
   isActive: boolean;
 

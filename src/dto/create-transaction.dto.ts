@@ -22,15 +22,18 @@ export class CreateTransactionDto {
   @IsOptional()
   userId: string;
 
-  @IsOptional()
+  @IsString()
   month: string;
 
-  @IsOptional()
+  @IsString()
   year: string;
 
-  @IsOptional()
+  @IsString()
   day: string;
 
   @IsOptional()
   comment: string;
+
+  @IsString()
+  currencyCode: string;
 }

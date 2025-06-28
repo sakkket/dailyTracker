@@ -5,9 +5,10 @@ import { UserModule } from './user/user.module';
 import { DatabaseModule } from './database/database.module';
 import { TransactionModule } from './transaction/transaction.module';
 import { AuthModule } from './auth/auth.module';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { ConfigModule } from '@nestjs/config';
 import { UservisitModule } from './uservisit/uservisit.module';
+import { APP_GUARD } from '@nestjs/core';
 
 @Module({
   imports: [
@@ -18,7 +19,7 @@ import { UservisitModule } from './uservisit/uservisit.module';
     ThrottlerModule.forRoot({
       throttlers: [
         {
-          ttl: 60000,
+          ttl: 60,
           limit: 10,
         },
       ],
@@ -33,6 +34,12 @@ import { UservisitModule } from './uservisit/uservisit.module';
     UservisitModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}
