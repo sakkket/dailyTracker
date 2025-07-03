@@ -5,8 +5,31 @@ import { CreateTransactionDto } from 'src/dto/create-transaction.dto';
 import { PipelineStage } from 'mongoose';
 import { User } from '../interfaces/user.interface';
 import UpdateTransactionDto from 'src/dto/update-transaction.dto';
+import * as PDFDocument from 'pdfkit';
 const SLR = require('ml-regression').SLR;
 import * as moment from 'moment';
+import { Response } from 'express';
+const EXPENDITURE_CATEGORIES_MAP = {
+  transport: 'Transport',
+  food: 'Food & Drinks',
+  groceries: 'Groceries',
+  rent: 'Rent',
+  loans: 'Loan',
+  entertainment: 'Entertainment',
+  clothes: 'Clothes',
+  internet: 'Internet & Phone',
+  na: 'No Category',
+  transfer: 'Fund Transfer',
+  gadget: 'Gadget',
+  car: 'Car Fuel & Maintainance',
+  income: 'Income or Budget',
+  mutualFund: 'Mutual Fund',
+  fd: 'Fixed Deposit',
+  rd: 'Recurring Deposit',
+  stocks: 'Stocks',
+  health: 'Health & Grooming',
+  creditcard: 'Credit Card Bill',
+};
 
 @Injectable()
 export class TransactionService {
@@ -81,6 +104,8 @@ export class TransactionService {
           groceries: { $ifNull: ['$categories.groceries', 0] },
           loans: { $ifNull: ['$categories.loans', 0] },
           entertainment: { $ifNull: ['$categories.entertainment', 0] },
+          household: { $ifNull: ['$categories.household', 0] },
+          creditcard: { $ifNull: ['$categories.creditcard', 0] },
           clothes: { $ifNull: ['$categories.clothes', 0] },
           internet: { $ifNull: ['$categories.internet', 0] },
           na: { $ifNull: ['$categories.na', 0] },
@@ -212,7 +237,6 @@ export class TransactionService {
   async transactionsDataCorrection() {
     const transactions: any[] = await this.transactionModel.find();
     for (const transaction of transactions) {
-      console.log(transaction._id);
       await this.transactionModel.findByIdAndUpdate(transaction._id, {
         $set: { currencyCode: 'INR' },
       });
@@ -249,9 +273,16 @@ export class TransactionService {
     }
     this.inProgress.add(userId);
     try {
-      const topCategories: any[] = await this.getTopExpenditureCategories(userId, month);
+      const topCategories: any[] = await this.getTopExpenditureCategories(
+        userId,
+        month,
+      );
       const monthlyChange: string = await this.getMonthlyChange(userId, month);
-      const peerComparision: string = await this.peerComparision(userId, currencyCode, month);
+      const peerComparision: string = await this.peerComparision(
+        userId,
+        currencyCode,
+        month,
+      );
       const nextMonthPrediction = await this.predictNextMonthSpend(userId);
       const insightsObject = {
         topCategories: topCategories,
@@ -267,26 +298,6 @@ export class TransactionService {
   }
 
   async getTopExpenditureCategories(userId, month): Promise<any[]> {
-    const EXPENDITURE_CATEGORIES_MAP = {
-      transport: 'Transport',
-      food: 'Food & Drinks',
-      groceries: 'Groceries',
-      rent: 'Rent',
-      loans: 'Loan',
-      entertainment: 'Entertainment',
-      clothes: 'Clothes',
-      internet: 'Internet & Phone',
-      na: 'No Category',
-      transfer: 'Fund Transfer',
-      gadget: 'Gadget',
-      car: 'Car Fuel & Maintainance',
-      income: 'Income or Budget',
-      mutualFund: 'Mutual Fund',
-      fd: 'Fixed Deposit',
-      rd: 'Recurring Deposit',
-      stocks: 'Stocks',
-      health: 'Health & Grooming',
-    };
     const topCategories: any[] = await this.transactionModel.aggregate([
       {
         $match: {
@@ -347,10 +358,10 @@ export class TransactionService {
       totalExpenditureInCurrentAndLastMonth.length
     ) {
       const last =
-        totalExpenditureInCurrentAndLastMonth.find((d) => d.month === '2025-05')
+        totalExpenditureInCurrentAndLastMonth.find((d) => d.month === previous)
           ?.totalSpend || 0;
       const current =
-        totalExpenditureInCurrentAndLastMonth.find((d) => d.month === '2025-06')
+        totalExpenditureInCurrentAndLastMonth.find((d) => d.month === month)
           ?.totalSpend || 0;
       const percentageChange =
         last > 0 ? (((current - last) / last) * 100).toFixed(0) + '%' : 'N/A';
@@ -380,7 +391,7 @@ export class TransactionService {
             },
           ],
           othersAverage: [
-            { $match: { userId: { '$ne': userId }, currencyCode: currencyCode } },
+            { $match: { userId: { $ne: userId }, currencyCode: currencyCode } },
             {
               $group: {
                 _id: '$userId',
@@ -390,7 +401,7 @@ export class TransactionService {
             {
               $group: {
                 _id: null,
-                avgSpend: { $avg: "$total" }
+                avgSpend: { $avg: '$total' },
               },
             },
           ],
@@ -447,5 +458,147 @@ export class TransactionService {
     const predicted = regression.predict(nextX);
 
     return Math.round(predicted);
+  }
+
+  async getAvailableReports(user: any, month: string) {
+    const userId = (user._id || '').toString();
+    const totalExpenditureInCurrentAndLastMonth =
+      await this.transactionModel.aggregate([
+        {
+          $match: {
+            userId: userId,
+            type: 'DEBIT',
+            month: { $ne: month },
+          },
+        },
+        {
+          $group: {
+            _id: '$month',
+            totalSpend: { $sum: '$amount' },
+          },
+        },
+        {
+          $project: {
+            month: '$_id',
+            totalSpend: 1,
+            _id: 0,
+          },
+        },
+      ]);
+    return totalExpenditureInCurrentAndLastMonth;
+  }
+
+  async generateMonthlyPdfReport(user: any, month: string, res: Response) {
+    const userId = (user._id || '').toString();
+    const transactions = await this.transactionModel.find({
+      userId: userId,
+      month: month,
+    });
+    const reportMonth = moment(month).format('MMMM YYYY');
+    const doc = new PDFDocument({ margin: 40 });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="monthly-report-${month}.pdf"`,
+    );
+
+    doc.pipe(res);
+
+    // Title
+    doc
+      .fontSize(20)
+      .fillColor('#333')
+      .text(`Monthly Report for ${reportMonth}`, {
+        align: 'center',
+      });
+    doc.moveDown();
+
+    // Line separator
+    doc.moveTo(40, doc.y).lineTo(550, doc.y).stroke('#cccccc');
+    doc.moveDown(0.5);
+    // Column configuration
+    const columns = [
+      { label: 'Date', key: 'day', x: 40, width: 70 },
+      { label: 'Amount', key: 'amount', x: 120, width: 70 },
+      { label: 'Category', key: 'category', x: 200, width: 100 },
+      { label: 'Type', key: 'type', x: 320, width: 80 },
+      { label: 'Comment', key: 'comment', x: 400, width: 150 },
+    ];
+
+    // Calculate header height (in case labels wrap)
+    doc.font('Helvetica-Bold').fontSize(12);
+    const headerHeights = columns.map((col) =>
+      doc.heightOfString(col.label, { width: col.width }),
+    );
+    const headerHeight = Math.max(...headerHeights) + 4;
+
+    const headerY = doc.y;
+
+    // Draw each column header
+    columns.forEach((col) => {
+      doc.text(col.label, col.x, headerY, { width: col.width });
+    });
+
+    // Move Y to below the header
+    doc.y = headerY + headerHeight;
+
+    // Separator line (optional)
+    doc.moveTo(40, doc.y).lineTo(550, doc.y).stroke('#cccccc');
+
+    doc.moveDown(0.3);
+
+    // Transaction rows
+    doc.fontSize(11).font('Helvetica');
+
+    transactions.forEach((txn) => {
+      const cellPadding = 4;
+
+      const day = moment(txn.day).format('DD/MM/YYYY');
+      const amount = txn.amount + '';
+      const category = EXPENDITURE_CATEGORIES_MAP[txn.category];
+      const type = txn.type;
+      const comment = txn.comment || '-';
+
+      const rowY = doc.y;
+
+      // Measure individual cell heights
+      const heights = [
+        doc.heightOfString(day, { width: 70 }),
+        doc.heightOfString(amount, { width: 70 }),
+        doc.heightOfString(category, { width: 100 }),
+        doc.heightOfString(type, { width: 80 }),
+        doc.heightOfString(comment, { width: 150 }),
+      ];
+
+      const rowHeight = Math.max(...heights) + cellPadding;
+
+      // Draw each cell at same Y
+      doc.text(day, 40, rowY, { width: 70 });
+      doc.text(amount, 120, rowY, { width: 70 });
+      doc.text(category, 200, rowY, { width: 100 });
+      doc.text(type, 320, rowY, { width: 80 });
+      doc.text(comment, 400, rowY, { width: 150 });
+
+      // Move to next row
+      doc.y = rowY + rowHeight;
+    });
+    doc.moveDown();
+    doc.moveTo(40, doc.y).lineTo(550, doc.y).stroke('#cccccc');
+    doc.moveDown(1.5);
+
+    // Summary
+    doc.fontSize(14).fillColor('#000').text('Summary:', { underline: true });
+    doc.moveDown();
+
+    const summary = transactions.reduce((acc, txn) => {
+      acc[txn.type] = (acc[txn.type] || 0) + txn.amount;
+      return acc;
+    }, {});
+
+    Object.entries(summary).forEach(([type, total]) => {
+      doc.fontSize(12).fillColor('#000').text(`${type}: ${total}`);
+    });
+
+    doc.end();
   }
 }

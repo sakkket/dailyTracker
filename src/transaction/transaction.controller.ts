@@ -8,7 +8,9 @@ import {
   Query,
   Delete,
   Put,
+  Res,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { TransactionService } from './transaction.service';
 import { CreateTransactionDto } from 'src/dto/create-transaction.dto';
 import UpdateTransactionDto from 'src/dto/update-transaction.dto';
@@ -100,5 +102,23 @@ export class TransactionController {
   getInsights(@Request() req, @Query('month') month: string): any {
     const user: any = req?.user;
     return this.transactionService.getInsights(user, month);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('availableReports')
+  availableReports(@Request() req, @Query('month') month: string): any {
+    const user: any = req?.user;
+    return this.transactionService.getAvailableReports(user, month);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('downloadReport')
+  async downloadReport(
+    @Request() req,
+    @Res({ passthrough: false }) res: Response,
+    @Query('month') month: string,
+  ) {
+    const user: any = req?.user;
+    await this.transactionService.generateMonthlyPdfReport(user, month, res);
   }
 }
