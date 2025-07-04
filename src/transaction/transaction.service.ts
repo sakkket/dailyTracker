@@ -1,4 +1,4 @@
-import { Model, Types } from 'mongoose';
+import { Model } from 'mongoose';
 import { Injectable, Inject, UnauthorizedException } from '@nestjs/common';
 import { Transaction } from 'src/interfaces/transaction.interface';
 import { CreateTransactionDto } from 'src/dto/create-transaction.dto';
