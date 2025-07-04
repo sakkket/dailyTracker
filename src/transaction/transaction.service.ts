@@ -18,7 +18,7 @@ const EXPENDITURE_CATEGORIES_MAP = {
   entertainment: 'Entertainment',
   clothes: 'Clothes',
   internet: 'Internet & Phone',
-  na: 'No Category',
+  na: 'Miscellaneous',
   transfer: 'Fund Transfer',
   gadget: 'Gadget',
   car: 'Car Fuel & Maintainance',
@@ -491,9 +491,10 @@ export class TransactionService {
   async generateMonthlyPdfReport(user: any, month: string, res: Response) {
     const userId = (user._id || '').toString();
     const transactions = await this.transactionModel.find({
-      userId: userId,
-      month: month,
-    });
+        userId: userId,
+        month: month,
+      })
+      .limit(10);
     const reportMonth = moment(month).format('MMMM YYYY');
     const doc = new PDFDocument({ margin: 40 });
     res.setHeader('Content-Type', 'application/pdf');
