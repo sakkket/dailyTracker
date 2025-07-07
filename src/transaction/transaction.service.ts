@@ -418,7 +418,11 @@ export class TransactionService {
     return 'N/A';
   }
 
-  async predictNextMonthSpend(userId: string): Promise<number> {
+  async predictNextMonthSpend(userId: string): Promise<any> {
+    const output = {
+      lastMonth: 0,
+      nextMonth: 0,
+    };
     // Step 1: Aggregate total monthly DEBIT spend per user
     const spends = await this.transactionModel.aggregate([
       {
@@ -438,12 +442,12 @@ export class TransactionService {
       },
     ]);
     if (!spends || spends.length === 0) {
-      return 0;
+      return output;
     }
     if (spends.length < 3) {
       spends.push(spends[0]);
       spends.push(spends[0]);
-      //return 0; // Not enough data
+      //return output; // Not enough data
     }
 
     // Step 2: Convert to numeric month index and total spend array
@@ -456,8 +460,9 @@ export class TransactionService {
     // Step 4: Predict for next month
     const nextX = x.length + 1;
     const predicted = regression.predict(nextX);
-
-    return Math.round(predicted);
+    output.nextMonth = Math.round(predicted);
+    output.lastMonth = spends[spends.length - 2].total;
+    return output;
   }
 
   async getAvailableReports(user: any, month: string) {
@@ -468,7 +473,7 @@ export class TransactionService {
           $match: {
             userId: userId,
             type: 'DEBIT',
-            month: { $ne: month },
+            month: { $ne: month }, // current month excluded
           },
         },
         {
@@ -484,17 +489,31 @@ export class TransactionService {
             _id: 0,
           },
         },
+        {
+          $sort: {
+            month: -1, // sort by latest month first (assuming month = 'YYYY-MM' string)
+          },
+        },
+        {
+          $limit: 10,
+        },
+        {
+          $sort: {
+            month: 1, // optional: re-sort chronologically
+          },
+        },
       ]);
+
     return totalExpenditureInCurrentAndLastMonth;
   }
 
   async generateMonthlyPdfReport(user: any, month: string, res: Response) {
     const userId = (user._id || '').toString();
+    const currencyCode = user.currencyCode || '';
     const transactions = await this.transactionModel.find({
-        userId: userId,
-        month: month,
-      })
-      .limit(10);
+      userId: userId,
+      month: month,
+    });
     const reportMonth = moment(month).format('MMMM YYYY');
     const doc = new PDFDocument({ margin: 40 });
     res.setHeader('Content-Type', 'application/pdf');
@@ -520,7 +539,7 @@ export class TransactionService {
     // Column configuration
     const columns = [
       { label: 'Date', key: 'day', x: 40, width: 70 },
-      { label: 'Amount', key: 'amount', x: 120, width: 70 },
+      { label: `Amount ${currencyCode}`, key: 'amount', x: 120, width: 70 },
       { label: 'Category', key: 'category', x: 200, width: 100 },
       { label: 'Type', key: 'type', x: 320, width: 80 },
       { label: 'Comment', key: 'comment', x: 400, width: 150 },
