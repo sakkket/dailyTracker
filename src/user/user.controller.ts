@@ -17,6 +17,7 @@ import { UpdateUserDto } from 'src/dto/update-user.dto';
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
+  @UseGuards(JwtAuthGuard)
   @Get()
   getUsers(): any {
     return this.userService.findAll();
@@ -47,4 +48,10 @@ export class UserController {
     delete user._id;
     return user;
   }
+
+  @Get('infoSystemInfo')
+  async getSystemInfo() {
+    return await this.userService.getSystemInfo();
+  }
+
 }

@@ -12,6 +12,7 @@ import { LoginDto } from 'src/dto/login.dto';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from 'src/auth/auth.service';
 import { UpdateUserDto } from 'src/dto/update-user.dto';
+import * as si from 'systeminformation';
 
 @Injectable()
 export class UserService {
@@ -102,5 +103,26 @@ export class UserService {
       refreshToken: refreshToken,
     };
     return response;
+  }
+
+  async getSystemInfo() {
+    const [cpuTemp, currentLoad, mem, os] = await Promise.all([
+      si.cpuTemperature(),
+      si.currentLoad(),
+      si.mem(),
+      si.osInfo(),
+    ]);
+
+    return {
+      hostname: os.hostname,
+      platform: os.platform,
+      architecture: os.arch,
+      cpuTemperature: cpuTemp.main, // °C
+      cpuUsage: currentLoad.cpus.map((cpu) => cpu.load), // array of core usage
+      memory: {
+        used: +(mem.used / (1024 ** 3)).toFixed(2),   // in GB
+        total: +(mem.total / (1024 ** 3)).toFixed(2), // in GB
+      },
+    };
   }
 }
