@@ -14,7 +14,7 @@ const EXPENDITURE_CATEGORIES_MAP = {
   food: 'Food & Drinks',
   groceries: 'Groceries',
   rent: 'Rent',
-  loans: 'Loan',
+  loans: 'Loan EMI',
   entertainment: 'Entertainment',
   clothes: 'Clothes',
   internet: 'Internet & Phone',
